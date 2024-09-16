@@ -118,7 +118,7 @@ jobs:
 
   publish_windows:
     name: Publishing Windows packages to repo.manticoresearch.com
-    needs: publish
+    needs: build
     runs-on: ubuntu-22.04
     steps:
       - uses: manticoresoftware/publish_to_repo@main
