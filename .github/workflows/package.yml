@@ -44,7 +44,11 @@ jobs:
         echo "rpm_version=${version}_${date}.${commit}" >> $GITHUB_OUTPUT
         echo "deb_version=${version}-${date}-${commit}" >> $GITHUB_OUTPUT
         echo "win_version=${version}-${date}-${commit}" >> $GITHUB_OUTPUT
-
+    - id: debug
+      run: |
+        ls -la
+        pwd
+        ls -la ..
     - name: Build RPM package
       run: |
         fpm -s dir -t rpm -n manticore-language-packs -v ${{ steps.vars.outputs.rpm_version }} -a noarch --prefix=/usr/share/manticore -C package/usr/share/manticore .
