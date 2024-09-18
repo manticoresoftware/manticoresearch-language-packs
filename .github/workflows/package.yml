@@ -66,20 +66,17 @@ jobs:
         name: artifact-deb
         path: |
           ./*_all.deb
-
     - uses: manticoresoftware/upload_artifact_with_retries@main
       with:
         name: artifact-rpm
         path: |
           ./*.noarch.rpm
           !./*-debuginfo-*.rpm
-
     - uses: manticoresoftware/upload_artifact_with_retries@main
       with:
         name: artifact
         path: |
           ./*.zip
-
   publish_rhel:
     needs: build
     strategy:
