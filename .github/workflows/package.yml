@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-22.04
     name: RHEL ${{ matrix.DISTR }} ${{ matrix.arch }} publishing
     steps:
-      - uses: manticoresoftware/publish_to_repo@dry-run-support
+      - uses: manticoresoftware/publish_to_repo@main
         with:
           ssh_key: ${{ secrets.REPO_SSH_KEY }}
           distr: ${{ matrix.DISTR }}
@@ -101,7 +101,7 @@ jobs:
     runs-on: ubuntu-22.04
     name: ${{ matrix.DISTR }} ${{ matrix.arch }} publishing
     steps:
-      - uses: manticoresoftware/publish_to_repo@dry-run-support
+      - uses: manticoresoftware/publish_to_repo@main
         with:
           ssh_key: ${{ secrets.REPO_SSH_KEY }}
           distr: ${{ matrix.DISTR }}
@@ -115,7 +115,7 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: manticoresoftware/publish_to_repo@dry-run-support
+      - uses: manticoresoftware/publish_to_repo@main
         with:
           ssh_key: ${{ secrets.REPO_SSH_KEY }}
           artifact: artifact
