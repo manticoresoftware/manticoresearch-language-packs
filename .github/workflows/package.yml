@@ -122,8 +122,8 @@ jobs:
       - uses: manticoresoftware/publish_to_repo@dry-run-support
         with:
           ssh_key: ${{ secrets.REPO_SSH_KEY }}
-          distr: windows
-          arch: x64
           artifact: artifact
-          type: "{tar.gz,zip}"
+          type: arc
+          arch: ""
+          distr: ""
           delimiter: "-"
