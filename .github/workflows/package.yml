@@ -61,20 +61,20 @@ jobs:
         zip -r "../manticore-language-packs-${{ steps.vars.outputs.win_version }}-x64.zip" usr/share/manticore
         cd ..
 
-    - uses: actions/upload-artifact@v3
+    - uses: manticoresoftware/upload_artifact_with_retries@main
       with:
         name: artifact-deb
         path: |
           ./*_all.deb
 
-    - uses: actions/upload-artifact@v3
+    - uses: manticoresoftware/upload_artifact_with_retries@main
       with:
         name: artifact-rpm
         path: |
           ./*.noarch.rpm
           !./*-debuginfo-*.rpm
 
-    - uses: actions/upload-artifact@v3
+    - uses: manticoresoftware/upload_artifact_with_retries@main
       with:
         name: artifact
         path: |
