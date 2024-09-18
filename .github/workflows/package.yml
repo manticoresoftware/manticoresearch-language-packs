@@ -126,7 +126,7 @@ jobs:
           ssh_key: ${{ secrets.REPO_SSH_KEY }}
           distr: windows
           arch: x64
-          artifact: upload_repo_arc
+          artifact: artifact
           type: "{tar.gz,zip}"
           dry_run: 1
           delimiter: "-"
