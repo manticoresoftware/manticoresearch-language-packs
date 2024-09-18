@@ -90,13 +90,14 @@ jobs:
     runs-on: ubuntu-22.04
     name: RHEL ${{ matrix.DISTR }} ${{ matrix.arch }} publishing
     steps:
-      - uses: manticoresoftware/publish_to_repo@main
+      - uses: manticoresoftware/publish_to_repo@dry-run-support
         with:
           ssh_key: ${{ secrets.REPO_SSH_KEY }}
           distr: ${{ matrix.DISTR }}
           arch: ${{ matrix.arch }}
           artifact: artifact-rpm
           type: rpm
+          dry_run: 1
           delimiter: "_"
 
   publish_debian_ubuntu:
@@ -109,13 +110,14 @@ jobs:
     runs-on: ubuntu-22.04
     name: ${{ matrix.DISTR }} ${{ matrix.arch }} publishing
     steps:
-      - uses: manticoresoftware/publish_to_repo@main
+      - uses: manticoresoftware/publish_to_repo@dry-run-support
         with:
           ssh_key: ${{ secrets.REPO_SSH_KEY }}
           distr: ${{ matrix.DISTR }}
           arch: ${{ matrix.arch }}
           artifact: artifact-deb
           type: deb
+          dry_run: 1
           delimiter: "-"
 
   publish_windows:
@@ -123,11 +125,12 @@ jobs:
     needs: build
     runs-on: ubuntu-22.04
     steps:
-      - uses: manticoresoftware/publish_to_repo@main
+      - uses: manticoresoftware/publish_to_repo@dry-run-support
         with:
           ssh_key: ${{ secrets.REPO_SSH_KEY }}
           distr: windows
           arch: x64
           artifact: upload_repo_arc
           type: "{tar.gz,zip}"
+          dry_run: 1
           delimiter: "-"
