@@ -93,7 +93,6 @@ jobs:
           arch: ${{ matrix.arch }}
           artifact: artifact-rpm
           type: rpm
-          dry_run: 1
           delimiter: "_"
 
   publish_debian_ubuntu:
@@ -113,7 +112,6 @@ jobs:
           arch: ${{ matrix.arch }}
           artifact: artifact-deb
           type: deb
-          dry_run: 1
           delimiter: "-"
 
   publish_windows:
@@ -128,5 +126,4 @@ jobs:
           arch: x64
           artifact: artifact
           type: "{tar.gz,zip}"
-          dry_run: 1
           delimiter: "-"
