@@ -16,17 +16,19 @@ jobs:
         for lang in de en ru; do
           curl -sSL "https://repo.manticoresearch.com/repository/morphology/${lang}.pak.tgz" | tar -xvzf -
         done
+        for name in hmm_model idf jieba.dict stop_words user.dict; do
+          curl -sSL "https://raw.githubusercontent.com/manticoresoftware/cppjieba/master/dict/${name}.utf8" -o ${name}.utf8
+        done
         cd ..
-
         sudo apt-get update
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper rpm ruby ruby-dev
         sudo gem install fpm
 
-    - name: Copy morphology pak files
+    - name: Copy morphology files
       run: |
         set -e
 
-        for file in packs/*.pak; do
+        for file in packs/*; do
           dest="package/usr/share/manticore/${file#packs/}"
           mkdir -p $(dirname $dest)
           cp -Rn "$file" "$dest"
