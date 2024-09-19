@@ -59,102 +59,69 @@ jobs:
         zip -r "../manticore-language-packs-${{ steps.vars.outputs.win_version }}-x64.zip" usr/share/manticore
         cd ..
 
-    - uses: actions/upload-artifact@v3
+    - uses: manticoresoftware/upload_artifact_with_retries@main
       with:
         name: artifact-deb
-        path: |
-          ./*_all.deb
+        path: ./*_all.deb
 
-    - uses: actions/upload-artifact@v3
+    - uses: manticoresoftware/upload_artifact_with_retries@main
       with:
         name: artifact-rpm
-        path: |
-          ./*.noarch.rpm
-          !./*-debuginfo-*.rpm
+        path: "./*.noarch.rpm !./*-debuginfo-*.rpm"
 
-    - uses: actions/upload-artifact@v3
+    - uses: manticoresoftware/upload_artifact_with_retries@main
       with:
         name: artifact
-        path: |
-          ./*.zip
+        path: ./*.zip
 
-  deploy:
-    needs:
-      - build
-    runs-on: self-hosted
+  publish_rhel:
+    needs: build
     strategy:
+      fail-fast: true
       matrix:
-        include:
-          - artifact: artifact-deb
-            ext: deb
-            script: upload_repo_deb
-            mask: ""
-            delimiter: "-"
-            distro: buster
-          - artifact: artifact-deb
-            ext: deb
-            script: upload_repo_deb
-            mask: ""
-            delimiter: "-"
-            distro: bionic
-          - artifact: artifact-deb
-            ext: deb
-            script: upload_repo_deb
-            mask: ""
-            delimiter: "-"
-            distro: focal
-          - artifact: artifact-deb
-            ext: deb
-            script: upload_repo_deb
-            mask: ""
-            delimiter: "-"
-            distro: jammy
-          - artifact: artifact-deb
-            ext: deb
-            script: upload_repo_deb
-            mask: ""
-            delimiter: "-"
-            distro: bullseye
-          - artifact: artifact-deb
-            ext: deb
-            script: upload_repo_deb
-            mask: ""
-            delimiter: "-"
-            distro: bookworm
-          - artifact: artifact-rpm
-            ext: rpm
-            script: upload_repo_rpm
-            mask: "*.noarch.rpm"
-            delimiter: "_"
-            distro: 7
-          - artifact: artifact-rpm
-            ext: rpm
-            script: upload_repo_rpm
-            mask: "*.noarch.rpm"
-            delimiter: "_"
-            distro: 8
-          - artifact: artifact-rpm
-            ext: rpm
-            script: upload_repo_rpm
-            mask: "*.noarch.rpm"
-            delimiter: "_"
-            distro: 9
-          - artifact: artifact
-            ext: "{tar.gz,zip}"
-            script: upload_repo_arc
-            delimiter: "-"
-            distro: ""
+        DISTR: [7, 8, 9]
+        arch: [noarch]
+    runs-on: ubuntu-22.04
+    name: RHEL ${{ matrix.DISTR }} ${{ matrix.arch }} publishing
     steps:
-      - uses: actions/checkout@v3
-      - run: mkdir build
-      - uses: actions/download-artifact@v3
+      - uses: manticoresoftware/publish_to_repo@main
         with:
-          name: ${{ matrix.artifact }}
-          path: ./build
+          ssh_key: ${{ secrets.REPO_SSH_KEY }}
+          distr: ${{ matrix.DISTR }}
+          arch: ${{ matrix.arch }}
+          artifact: artifact-rpm
+          type: rpm
+          delimiter: "_"
 
-      - name: Deploy package
-        run: |
-          curl -sSL https://raw.githubusercontent.com/manticoresoftware/repo_scripts/main/${{ matrix.script }} > ${{ matrix.script }}
-          chmod +x ${{ matrix.script }}
-          DISTRO=${{ matrix.distro }} DIGIT_DELIMITER2="${{ matrix.delimiter }}" FILE_MASK="${{ matrix.mask }}" ./${{ matrix.script }}
-        shell: bash
+  publish_debian_ubuntu:
+    needs: build
+    strategy:
+      fail-fast: true
+      matrix:
+        DISTR: [bionic, focal, jammy, buster, bullseye, bookworm]
+        arch: [all]
+    runs-on: ubuntu-22.04
+    name: ${{ matrix.DISTR }} ${{ matrix.arch }} publishing
+    steps:
+      - uses: manticoresoftware/publish_to_repo@main
+        with:
+          ssh_key: ${{ secrets.REPO_SSH_KEY }}
+          distr: ${{ matrix.DISTR }}
+          arch: ${{ matrix.arch }}
+          artifact: artifact-deb
+          type: deb
+          delimiter: "-"
+
+  publish_windows:
+    name: Publishing Windows packages to repo.manticoresearch.com
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: manticoresoftware/publish_to_repo@main
+        with:
+          ssh_key: ${{ secrets.REPO_SSH_KEY }}
+          artifact: artifact
+          type: arc
+          arch: ""
+          distr: ""
+          delimiter: "-"
