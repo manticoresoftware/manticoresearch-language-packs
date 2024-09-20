@@ -16,8 +16,9 @@ jobs:
         for lang in de en ru; do
           curl -sSL "https://repo.manticoresearch.com/repository/morphology/${lang}.pak.tgz" | tar -xvzf -
         done
+        mkdir jieba
         for name in hmm_model idf jieba.dict stop_words user.dict; do
-          curl -sSL "https://raw.githubusercontent.com/manticoresoftware/cppjieba/master/dict/${name}.utf8" -o ${name}.utf8
+          curl -sSL "https://raw.githubusercontent.com/manticoresoftware/cppjieba/master/dict/${name}.utf8" -o jieba/${name}.utf8
         done
         cd ..
         sudo apt-get update
