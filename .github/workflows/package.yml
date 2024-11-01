@@ -17,9 +17,10 @@ jobs:
           curl -sSL "https://repo.manticoresearch.com/repository/morphology/${lang}.pak.tgz" | tar -xvzf -
         done
         mkdir jieba
-        for name in hmm_model idf jieba.dict stop_words user.dict; do
+        for name in hmm_model idf stop_words user.dict; do
           curl -sSL "https://raw.githubusercontent.com/manticoresoftware/cppjieba/master/dict/${name}.utf8" -o jieba/${name}.utf8
         done
+        curl -sSL "https://github.com/fxsjy/jieba/blob/master/extra_dict/dict.txt.big" -o jieba/jieba.dict.utf8
         cd ..
         sudo apt-get update
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper rpm ruby ruby-dev
