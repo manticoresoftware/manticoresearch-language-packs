@@ -81,7 +81,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        DISTR: [7, 8, 9]
+        DISTR: [8, 9, 10]
         arch: [noarch]
     runs-on: ubuntu-22.04
     name: RHEL ${{ matrix.DISTR }} ${{ matrix.arch }} publishing
@@ -92,6 +92,7 @@ jobs:
           distr: ${{ matrix.DISTR }}
           arch: ${{ matrix.arch }}
           artifact: artifact-rpm
+          target: release
           type: rpm
           delimiter: "_"
 
@@ -111,6 +112,7 @@ jobs:
           distr: ${{ matrix.DISTR }}
           arch: ${{ matrix.arch }}
           artifact: artifact-deb
+          target: release
           type: deb
           delimiter: "-"
 
@@ -127,3 +129,4 @@ jobs:
           arch: ""
           distr: ""
           delimiter: "-"
+          target: release
