@@ -3,63 +3,175 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Package registry target to publish to'
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - release
+          - both
+      version:
+        description: 'Package version. Required for manual runs from a branch; optional on tag refs.'
+        required: false
+        type: string
+      dry_run:
+        description: 'Run publish_to_repo without uploading files'
+        required: true
+        default: true
+        type: boolean
 
 jobs:
+  prepare:
+    name: Prepare version and publish targets
+    runs-on: ubuntu-22.04
+    outputs:
+      rpm_version: ${{ steps.vars.outputs.rpm_version }}
+      deb_version: ${{ steps.vars.outputs.deb_version }}
+      win_version: ${{ steps.vars.outputs.win_version }}
+      publish_targets: ${{ steps.vars.outputs.publish_targets }}
+      should_publish: ${{ steps.vars.outputs.should_publish }}
+      dry_run: ${{ steps.vars.outputs.dry_run }}
+    steps:
+      - id: vars
+        shell: bash
+        env:
+          INPUT_TARGET: ${{ github.event.inputs.target || '' }}
+          INPUT_VERSION: ${{ github.event.inputs.version || '' }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run || '' }}
+        run: |
+          set -euo pipefail
+
+          date_suffix=$(date +%y%m%d)
+          commit=${GITHUB_SHA:0:7}
+
+          case "$GITHUB_EVENT_NAME" in
+            pull_request)
+              version="0.0.0"
+              publish_targets="[]"
+              should_publish="false"
+              dry_run="true"
+              ;;
+            push)
+              if [[ "$GITHUB_REF_TYPE" != "tag" || "$GITHUB_REF_NAME" != v* ]]; then
+                echo "::error::Push builds are only supported for v*.*.* tags"
+                exit 1
+              fi
+              version="${GITHUB_REF_NAME#v}"
+              publish_targets='["release","dev"]'
+              should_publish="true"
+              dry_run="false"
+              ;;
+            workflow_dispatch)
+              if [[ -n "$INPUT_VERSION" ]]; then
+                version="${INPUT_VERSION#v}"
+              elif [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" == v* ]]; then
+                version="${GITHUB_REF_NAME#v}"
+              else
+                echo "::error::Manual branch runs require the version input"
+                exit 1
+              fi
+
+              case "${INPUT_TARGET:-dev}" in
+                dev)
+                  publish_targets='["dev"]'
+                  ;;
+                release)
+                  publish_targets='["release"]'
+                  ;;
+                both)
+                  publish_targets='["release","dev"]'
+                  ;;
+                *)
+                  echo "::error::Unsupported publish target '${INPUT_TARGET}'"
+                  exit 1
+                  ;;
+              esac
+
+              should_publish="true"
+              dry_run="${INPUT_DRY_RUN:-true}"
+              ;;
+            *)
+              echo "::error::Unsupported event '$GITHUB_EVENT_NAME'"
+              exit 1
+              ;;
+          esac
+
+          {
+            echo "rpm_version=${version}_${date_suffix}.${commit}"
+            echo "deb_version=${version}-${date_suffix}-${commit}"
+            echo "win_version=${version}-${date_suffix}-${commit}"
+            echo "publish_targets=${publish_targets}"
+            echo "should_publish=${should_publish}"
+            echo "dry_run=${dry_run}"
+          } >> "$GITHUB_OUTPUT"
+
   build:
+    needs: prepare
     runs-on: ubuntu-22.04
     steps:
     - name: Download and unpack morphology packs
       run: |
-        set -e
+        set -euo pipefail
 
-        mkdir packs && cd $_
-        for lang in de en ru; do
-          curl -sSL "https://repo.manticoresearch.com/repository/morphology/${lang}.pak.tgz" | tar -xvzf -
+        mkdir packs && cd packs
+        for lang in de en ru uk; do
+          curl -fsSL "https://repo.manticoresearch.com/repository/morphology/${lang}.pak.tgz" | tar -xvzf -
         done
         mkdir jieba
         for name in hmm_model idf stop_words user.dict; do
-          curl -sSL "https://raw.githubusercontent.com/manticoresoftware/cppjieba/master/dict/${name}.utf8" -o jieba/${name}.utf8
+          curl -fsSL "https://raw.githubusercontent.com/manticoresoftware/cppjieba/master/dict/${name}.utf8" -o jieba/${name}.utf8
         done
-        curl -sSL "https://raw.githubusercontent.com/manticoresoftware/jieba/refs/heads/master/extra_dict/dict.txt.big" -o jieba/jieba.dict.utf8
+        curl -fsSL "https://raw.githubusercontent.com/manticoresoftware/jieba/refs/heads/master/extra_dict/dict.txt.big" -o jieba/jieba.dict.utf8
         cd ..
         sudo apt-get update
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper rpm ruby ruby-dev
-        sudo gem install fpm
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper rpm ruby ruby-dev unzip zip
+        sudo gem install --no-document fpm
 
     - name: Copy morphology files
       run: |
-        set -e
+        set -euo pipefail
 
         for file in packs/*; do
           dest="package/usr/share/manticore/${file#packs/}"
-          mkdir -p $(dirname $dest)
+          mkdir -p "$(dirname "$dest")"
           cp -Rn "$file" "$dest"
         done
       shell: bash
 
-
-    - id: vars
-      run: |
-        version=$(echo ${{ github.ref_name }} | cut -dv -f2)
-        date=$(date +%y%m%d)
-        commit=${GITHUB_SHA:0:7}
-        echo "rpm_version=${version}_${date}.${commit}" >> $GITHUB_OUTPUT
-        echo "deb_version=${version}-${date}-${commit}" >> $GITHUB_OUTPUT
-        echo "win_version=${version}-${date}-${commit}" >> $GITHUB_OUTPUT
-
     - name: Build RPM package
       run: |
-        fpm -s dir -t rpm -n manticore-language-packs -v ${{ steps.vars.outputs.rpm_version }} -a noarch --prefix=/usr/share/manticore -C package/usr/share/manticore .
+        fpm -s dir -t rpm -n manticore-language-packs -v ${{ needs.prepare.outputs.rpm_version }} -a noarch --prefix=/usr/share/manticore -C package/usr/share/manticore .
 
     - name: Build DEB package
       run: |
-        fpm -s dir -t deb -n manticore-language-packs -v ${{ steps.vars.outputs.deb_version }} -a all --prefix /usr/share/manticore -C package/usr/share/manticore .
+        fpm -s dir -t deb -n manticore-language-packs -v ${{ needs.prepare.outputs.deb_version }} -a all --prefix /usr/share/manticore -C package/usr/share/manticore .
 
     - name: Build WIN package
       run: |
         cd package
-        zip -r "../manticore-language-packs-${{ steps.vars.outputs.win_version }}-x64.zip" usr/share/manticore
+        zip -r "../manticore-language-packs-${{ needs.prepare.outputs.win_version }}-x64.zip" usr/share/manticore
         cd ..
+
+    - name: Verify Ukrainian pack in artifacts
+      run: |
+        set -euo pipefail
+
+        deb=$(find . -maxdepth 1 -name 'manticore-language-packs_*_all.deb' -print -quit)
+        rpm=$(find . -maxdepth 1 -name 'manticore-language-packs-*.noarch.rpm' -print -quit)
+        zip=$(find . -maxdepth 1 -name 'manticore-language-packs-*-x64.zip' -print -quit)
+
+        test -n "$deb"
+        test -n "$rpm"
+        test -n "$zip"
+
+        dpkg-deb -c "$deb" | grep './usr/share/manticore/uk\.pak$' >/dev/null
+        rpm -qlp "$rpm" | grep -x '/usr/share/manticore/uk.pak' >/dev/null
+        unzip -Z1 "$zip" | grep -x 'usr/share/manticore/uk.pak' >/dev/null
 
     - uses: manticoresoftware/upload_artifact_with_retries@main
       with:
@@ -77,14 +189,16 @@ jobs:
         path: ./*.zip
 
   publish_rhel:
-    needs: build
+    needs: [prepare, build]
+    if: needs.prepare.outputs.should_publish == 'true'
     strategy:
       fail-fast: true
       matrix:
         DISTR: [8, 9, 10]
         arch: [noarch]
+        target: ${{ fromJSON(needs.prepare.outputs.publish_targets) }}
     runs-on: ubuntu-22.04
-    name: RHEL ${{ matrix.DISTR }} ${{ matrix.arch }} publishing
+    name: RHEL ${{ matrix.DISTR }} ${{ matrix.arch }} ${{ matrix.target }} publishing
     steps:
       - uses: manticoresoftware/publish_to_repo@main
         with:
@@ -92,19 +206,22 @@ jobs:
           distr: ${{ matrix.DISTR }}
           arch: ${{ matrix.arch }}
           artifact: artifact-rpm
-          target: release
+          target: ${{ matrix.target }}
           type: rpm
           delimiter: "_"
+          dry_run: ${{ needs.prepare.outputs.dry_run }}
 
   publish_debian_ubuntu:
-    needs: build
+    needs: [prepare, build]
+    if: needs.prepare.outputs.should_publish == 'true'
     strategy:
       fail-fast: true
       matrix:
         DISTR: [bionic, focal, jammy, buster, bullseye, bookworm]
         arch: [all]
+        target: ${{ fromJSON(needs.prepare.outputs.publish_targets) }}
     runs-on: ubuntu-22.04
-    name: ${{ matrix.DISTR }} ${{ matrix.arch }} publishing
+    name: ${{ matrix.DISTR }} ${{ matrix.arch }} ${{ matrix.target }} publishing
     steps:
       - uses: manticoresoftware/publish_to_repo@main
         with:
@@ -112,13 +229,19 @@ jobs:
           distr: ${{ matrix.DISTR }}
           arch: ${{ matrix.arch }}
           artifact: artifact-deb
-          target: release
+          target: ${{ matrix.target }}
           type: deb
           delimiter: "-"
+          dry_run: ${{ needs.prepare.outputs.dry_run }}
 
   publish_windows:
-    name: Publishing Windows packages to repo.manticoresearch.com
-    needs: build
+    name: Publishing Windows packages to repo.manticoresearch.com ${{ matrix.target }}
+    needs: [prepare, build]
+    if: needs.prepare.outputs.should_publish == 'true'
+    strategy:
+      fail-fast: true
+      matrix:
+        target: ${{ fromJSON(needs.prepare.outputs.publish_targets) }}
     runs-on: ubuntu-22.04
     steps:
       - uses: manticoresoftware/publish_to_repo@main
@@ -129,4 +252,5 @@ jobs:
           arch: ""
           distr: ""
           delimiter: "-"
-          target: release
+          target: ${{ matrix.target }}
+          dry_run: ${{ needs.prepare.outputs.dry_run }}
