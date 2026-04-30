@@ -169,9 +169,9 @@ jobs:
         test -n "$rpm"
         test -n "$zip"
 
-        dpkg-deb -c "$deb" | grep -q './usr/share/manticore/uk\.pak$'
-        rpm -qlp "$rpm" | grep -qx '/usr/share/manticore/uk.pak'
-        unzip -Z1 "$zip" | grep -qx 'usr/share/manticore/uk.pak'
+        dpkg-deb -c "$deb" | grep './usr/share/manticore/uk\.pak$' >/dev/null
+        rpm -qlp "$rpm" | grep -x '/usr/share/manticore/uk.pak' >/dev/null
+        unzip -Z1 "$zip" | grep -x 'usr/share/manticore/uk.pak' >/dev/null
 
     - uses: manticoresoftware/upload_artifact_with_retries@main
       with:
